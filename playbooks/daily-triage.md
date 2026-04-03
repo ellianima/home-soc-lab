@@ -6,10 +6,10 @@
 
 ## Morning Startup Checklist
 ```bash
-# 1. Start all WSL2 services
-sudo systemctl start wazuh-manager
-sudo systemctl start wazuh-indexer
-sudo systemctl start wazuh-dashboard
+# 1. Verify all services auto-started correctly
+sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard logstash | grep Active
+
+# If Logstash is inactive (started before Indexer was ready):
 sudo systemctl start logstash
 
 # 2. Verify all services active
@@ -52,7 +52,7 @@ sudo tail -f /var/ossec/logs/alerts/alerts.json | grep -i "syscheck\|mitre\|auth
 **Dashboard:** `https://172.23.201.127` or `https://localhost`
 **Login:** `admin / admin`
 
-> ⚠️ WSL2 IP may change on reboot. Verify with `hostname -I`
+> ✅ WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
 
 ---
 
@@ -333,9 +333,10 @@ sudo tail -20 /var/ossec/logs/ossec.log
 # Check MITRE database health
 sudo sqlite3 /var/ossec/var/db/mitre.db ".tables"
 
-# WSL2 IP changed after reboot?
+# Verify WSL2 static IP is assigned correctly
 hostname -I
-# Update configs if IP changed
+# Should always show 172.23.201.127
+# If not — check /etc/wsl.conf boot command
 
 # Indexer health
 curl -k -u admin:admin https://172.23.201.127:9200/_cluster/health
