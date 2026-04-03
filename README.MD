@@ -21,6 +21,12 @@ threat triage, IOC investigation, and incident documentation.
 | Logstash | 7.17.29 | Alert pipeline to OpenSearch |  Active |
 | Zeek | 8.0.5 | Network traffic analysis |  Planned |
 | TheHive | 5.2 | Incident case management |  Planned |
+| Wireshark | Latest | Packet analysis |  Planned |
+| VirusTotal | — | IOC enrichment |  Active (manual) |
+| AbuseIPDB | — | IP reputation lookup |  Active (manual) |
+| OTX AlienVault | — | Threat intelligence feeds |  Active (manual) |
+| CyberChef | — | Log/IOC decoding |  Active (manual) |
+| Nmap | — | Recon detection testing |  Planned |
 
 ## Daily Workflow
 - Monitor Wazuh alerts across active agents
