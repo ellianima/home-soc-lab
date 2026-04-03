@@ -19,10 +19,10 @@ Environment: WSL2 Ubuntu 22.04 on Windows 11 host, Kali Linux VM (attacker).
 
 Windows 11 (Host — 12GB RAM)
 ├── WSL2 Ubuntu 22.04 (8GB allocated via .wslconfig)
-│ ├── Wazuh Manager 4.14.4
-│ ├── Wazuh Indexer 4.14.4 (OpenSearch 2.19.4)
-│ ├── Wazuh Dashboard 4.14.4
-│ └── Logstash 7.17.29 (alert pipeline)
+│   ├── Wazuh Manager 4.14.4
+│   ├── Wazuh Indexer 4.14.4 (OpenSearch 2.19.4)
+│   ├── Wazuh Dashboard 4.14.4
+│   └── Logstash 7.17.29 (alert pipeline)
 ├── Wazuh Agent 4.14.4 (Windows self-monitoring)
 └── VirtualBox
 └── Kali Linux VM — 4GB RAM [🔜 Planned — attacker]
