@@ -16,7 +16,7 @@ Environment: WSL2 Ubuntu 22.04 on Windows 11 host, Kali Linux VM (attacker).
 ---
 
 ## Architecture Overview
-
+```
 Windows 11 (Host — 12GB RAM)
 ├── WSL2 Ubuntu 22.04 (8GB allocated via .wslconfig)
 │   ├── Wazuh Manager 4.14.4
@@ -26,7 +26,7 @@ Windows 11 (Host — 12GB RAM)
 ├── Wazuh Agent 4.14.4 (Windows self-monitoring)
 └── VirtualBox
 └── Kali Linux VM — 4GB RAM [🔜 Planned — attacker]
-
+```
 ---
 
 ## Phase 1 — WSL2 Setup
