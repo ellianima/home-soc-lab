@@ -12,7 +12,7 @@ threat triage, IOC investigation, and incident documentation.
 | Ubuntu 22.04 (WSL2) | Wazuh Manager + SIEM | 172.23.201.127 |
 | Windows 11 | Wazuh Agent + Monitored Endpoint | 172.23.192.1 |
 
-> WSL2 IPs may reset on reboot. Always verify with `hostname -I` before operations.
+> WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
 
 ## Tools
 | Tool | Version | Purpose | Status |
