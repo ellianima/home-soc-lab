@@ -149,3 +149,200 @@ whois suspicious-domain.com
 ---
 
 ## Wazuh DQL Quick Reference
+```
+# High severity alerts
+rule.level >= 7
+
+# MITRE-tagged alerts only
+rule.mitre.id: *
+
+# Specific technique
+rule.mitre.id: T1098
+
+# Agent 001 (Windows)
+agent.id: 001
+
+# Authentication failures
+rule.groups: authentication_failed
+
+# FIM events
+rule.groups: syscheck
+
+# Vulnerability alerts
+rule.groups: vulnerability-detector
+
+# SCA alerts
+rule.groups: sca
+```
+
+---
+
+## Network Commands
+```bash
+# Check WSL2 IP
+hostname -I
+
+# Scan LAN for live devices
+nmap -sn 172.23.201.0/20
+
+# Scan open ports on a device
+nmap -sV <target-ip>
+
+# Check connectivity
+ping 172.23.192.1
+
+# Check RAM
+free -h
+
+# Check disk space
+df -h
+```
+
+---
+
+## Linux Log & File Commands
+```bash
+# Read a file
+cat filename.log
+
+# Read with scroll
+less filename.log
+
+# Search inside file
+grep "keyword" filename.log
+
+# Case-insensitive search
+grep -i "keyword" filename.log
+
+# Show last 20 lines
+tail -20 filename.log
+
+# Follow live updates
+tail -f filename.log
+
+# List files with permissions
+ls -lh
+
+# Find a file
+find / -name "filename" 2>/dev/null
+```
+
+---
+
+## Git — GitHub Updates
+```bash
+# Navigate to lab folder
+cd ~/home-soc-lab
+
+# Stage all changes
+git add .
+
+# Commit with message
+git commit -m "Daily log: 2026-04-03 — 3 alerts triaged, 1 true positive"
+
+# Push to GitHub
+git push origin main
+
+# Check status
+git status
+
+# View commit history
+git log --oneline
+```
+
+---
+
+## Windows PowerShell — Wazuh Agent
+```powershell
+# Check agent status
+Get-Service WazuhSvc
+
+# Start agent
+NET START WazuhSvc
+
+# Stop agent
+NET STOP WazuhSvc
+
+# Restart agent
+Restart-Service WazuhSvc
+
+# Create FIM test file
+New-Item -Path "C:\Users\Public\fim_test.txt" -ItemType File
+
+# Check active connections
+netstat -ano
+
+# Check running processes
+Get-Process
+```
+
+---
+
+## Lab Network Reference
+
+| Device | IP | Role | Agent Name |
+|---|---|---|---|
+| Ubuntu 22.04 (WSL2) | 172.23.201.127 | Wazuh Manager + Logstash | — |
+| Windows 11 | 172.23.192.1 | Wazuh Agent + Endpoint | Candy-Cat-Silly-Fun |
+
+---
+
+## Incident Report Template
+```markdown
+# Case #XXX — [Title]
+
+**Date:** YYYY-MM-DD
+**Analyst:** ellianima
+**Agent:** [Agent name] ([IP])
+**Severity:** Low / Medium / High / Critical
+**Verdict:** True Positive / False Positive
+
+## Summary
+[1-2 sentence description of what triggered the alert]
+
+## MITRE ATT&CK
+- Tactic: [Tactic name]
+- Technique: [TXXXX — Technique name]
+
+## Timeline
+| Time | Event |
+|---|---|
+| HH:MM | [What happened] |
+
+## Investigation
+[What you found, what tools you used, what IPs/domains/hashes you checked]
+
+## Action Taken
+[What you did — escalate, close, document]
+
+## Lessons Learned
+[What this taught you]
+```
+---
+
+## Troubleshooting Quick Reference
+```bash
+# Logstash not indexing alerts?
+curl -k -u admin:admin "https://172.23.201.127:9200/wazuh-alerts-*/_count"
+sudo journalctl -u logstash --no-pager | tail -20
+
+# Wazuh manager not starting?
+sudo /var/ossec/bin/wazuh-control info
+sudo tail -20 /var/ossec/logs/ossec.log
+
+# Check MITRE database health
+sudo sqlite3 /var/ossec/var/db/mitre.db ".tables"
+
+# WSL2 IP changed after reboot?
+hostname -I
+# Update configs if IP changed
+
+# Indexer health
+curl -k -u admin:admin https://172.23.201.127:9200/_cluster/health
+```
+
+---
+
+*Cerveaux Labs — Home SOC Operations*
+*Analyst: ellianima*
+*github.com/ellianima/home-soc-lab*
