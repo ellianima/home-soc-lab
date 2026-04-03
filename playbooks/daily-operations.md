@@ -22,18 +22,19 @@ That's the job. Everything else is detail around this loop.
 
 | Component | Role | IP |
 |---|---|---|
-| Ubuntu 22.04 (WSL2) | Wazuh Manager + Logstash | 172.23.201.127 (verify with `hostname -I`) |
+| Ubuntu 22.04 (WSL2) | Wazuh Manager + Logstash | 172.23.201.127 (static — persistent across reboots) |
 | Windows 11 | Wazuh Agent + Monitored Endpoint | 172.23.192.1 |
 
-> ⚠️ WSL2 IP may change on reboot. Always verify with `hostname -I` before operations.
+> ✅ WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
 
 ### Starting the lab (after Windows reboot)
 
 ```bash
-# Open Ubuntu 22.04 (WSL2) terminal, then:
-sudo systemctl start wazuh-manager
-sudo systemctl start wazuh-indexer
-sudo systemctl start wazuh-dashboard
+# All services auto-start on WSL2 boot
+# Verify they're running:
+sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard logstash | grep Active
+
+# If any service failed to start (e.g. Logstash started before Indexer was ready):
 sudo systemctl start logstash
 
 # Verify all services
@@ -332,7 +333,7 @@ Unknown process spawned by lsass.exe or svchost.exe
 
 ```
 STARTUP
-[ ] Start WSL2 services (manager, indexer, dashboard, logstash)
+[ ] Verify WSL2 services (manager, indexer, dashboard, logstash)
 [ ] Verify all services active
 [ ] Confirm agent 001 (Candy-Cat-Silly-Fun) is online
 
@@ -364,10 +365,11 @@ END OF SESSION
 
 | Issue | Status | Workaround |
 |---|---|---|
-| WSL2 IP resets on reboot | Known | Run `hostname -I` to get current IP |
+| WSL2 IP resets on reboot | FIXED  | Static IP via /etc/wsl.conf boot command |
 | Filebeat crashes on WSL2 | Known — replaced | Using Logstash + OpenSearch plugin instead |
 | Logstash needs Elasticsearch plugin installed | Known | Keep both `logstash-output-elasticsearch` and `logstash-output-opensearch` installed |
 | `perf_event_paranoid` resets on WSL2 restart | Mitigated | Set in `/etc/sysctl.conf` and `/etc/wsl.conf` |
+| Logstash inactive after reboot | FIXED | ExecStartPre=/bin/sleep 30 in logstash.service |
 
 ---
 
