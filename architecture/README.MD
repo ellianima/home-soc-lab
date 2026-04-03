@@ -69,7 +69,7 @@ Used for:
 ---
 
 ## Data Flow
-
+```
 [Windows Agent] ──TCP 1514──► [Wazuh Manager : WSL2 172.23.201.127]
 │
 ├── alerts.json (local file)
@@ -80,7 +80,7 @@ Used for:
 └── Cases opened → TheHive (planned)
 [WSL2 eth0] ──passive sniff──► [Zeek] ──► conn.log / dns.log / http.log (planned)
 [Kali VM] ──attacks──► [Windows 11] ──events──► [Wazuh Agent] ──► Manager (planned)
-
+```
 ---
 
 ## Tool Interaction Map
