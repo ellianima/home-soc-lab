@@ -289,7 +289,14 @@ sudo systemctl start logstash
 curl -k -u admin:admin "https://172.23.201.127:9200/wazuh-alerts-*/_count"
 # Should return count > 0
 ```
+### 3.5 Fix Logstash Startup Timing
 
+# Logstash must wait for Indexer to be fully ready
+sudo nano /etc/systemd/system/logstash.service
+# Add under [Service]:
+# ExecStartPre=/bin/sleep 30
+
+sudo systemctl daemon-reload
 ---
 
 ## Phase 4 — Windows Agent
@@ -401,13 +408,14 @@ sudo systemctl start logstash
 
 | Problem                            | Cause                                                    | Fix                                                          |
 | ---------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------ |
-| WSL2 IP changed after reboot       | DHCP reassignment                                        | `hostname -I` to get new IP, update configs                  |
+| WSL2 IP changed after reboot       | Static IP via /etc/wsl.conf not applied                  | Verify boot command in /etc/wsl.conf — should contain: ip addr add 172.23.201.127/20 dev eth0 |
 | Logstash crash loop                | Missing Elasticsearch plugin dependency                  | Reinstall `logstash-output-elasticsearch`                    |
 | Filebeat pthread crash             | WSL2 kernel threading restriction                        | Don't use Filebeat — use Logstash instead                    |
 | Indexer security not initialized   | First-time setup step skipped                            | `sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh` |
 | Dashboard shows "server not ready" | Dashboard config pointing to wrong indexer IP            | Set `opensearch.hosts` to WSL2 IP, not localhost             |
 | MITRE field mapping errors         | Logstash default template used instead of Wazuh template | Apply Wazuh template via curl PUT                            |
 | Alert count stays 0                | Logstash can't read alerts.json                          | `sudo usermod -aG wazuh logstash`                            |
+Logstash inactive after reboot | Started before Indexer was ready | ExecStartPre=/bin/sleep 30 in logstash.service
 
 ---
 
