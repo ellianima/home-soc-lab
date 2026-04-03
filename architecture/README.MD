@@ -4,7 +4,7 @@
 
 | Component           | OS               | IP Address                                   | Role                               |
 | ------------------- | ---------------- | -------------------------------------------- | ---------------------------------- |
-| Ubuntu 22.04 (WSL2) | Ubuntu 22.04 LTS | 172.23.201.127 (WSL2 — may change on reboot) | SOC Manager                        |
+| Ubuntu 22.04 (WSL2) | Ubuntu 22.04 LTS | 172.23.201.127 (static — persistent across reboots)) | SOC Manager                        |
 | Windows 11          | Windows 11       | 172.23.192.1                                 | Monitored Endpoint (Windows Agent) |
 | Kali Linux VM       | Kali Rolling     | TBD — 4GB RAM                                | Attacker 🔜 Planned                |
 | Home Router         | ZTE F670L        | 192.168.1.1                                  | Gateway / DHCP Server              |
@@ -12,7 +12,7 @@
 **Hypervisor:** Oracle VirtualBox (Host: Windows 11)
 **SIEM Host:** WSL2 Ubuntu 22.04 (shares RAM dynamically with Windows)
 
-> ⚠️ WSL2 IP changes on reboot. Always verify with `hostname -I` before operations.
+> ✅ WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
 
 ---
 
@@ -140,7 +140,7 @@ TheHive (planned)
 
 | Limitation                      | Impact                             | Workaround                                  |
 | ------------------------------- | ---------------------------------- | ------------------------------------------- |
-| WSL2 IP changes on reboot       | Must update configs if IP shifts   | Always check `hostname -I` first            |
+| WSL2 IP changes on reboot       | FIXED                              | Static IP assigned via /etc/wsl.conf boot command|
 | Filebeat incompatible with WSL2 | Cannot use official Wazuh pipeline | Replaced with Logstash + OpenSearch plugin  |
 | Single Windows agent            | No Linux endpoint monitoring       | Kali VM agent planned for Phase 2           |
 | No network tap                  | Zeek sees WSL2 traffic only        | Full LAN coverage when Zeek + Kali deployed |
