@@ -290,13 +290,14 @@ curl -k -u admin:admin "https://172.23.201.127:9200/wazuh-alerts-*/_count"
 # Should return count > 0
 ```
 ### 3.5 Fix Logstash Startup Timing
-
+```
 # Logstash must wait for Indexer to be fully ready
 sudo nano /etc/systemd/system/logstash.service
 # Add under [Service]:
 # ExecStartPre=/bin/sleep 30
 
 sudo systemctl daemon-reload
+```
 ---
 
 ## Phase 4 — Windows Agent
