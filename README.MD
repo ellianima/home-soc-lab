@@ -9,13 +9,10 @@ threat triage, IOC investigation, and incident documentation.
 ## Architecture
 | Component | Role | IP |
 |---|---|---|
-| Kali Linux VM | SOC Manager | 192.168.1.8 |
-| Ubuntu VM | Wazuh Agent | 192.168.1.x |   
-| Windows 11 | Wazuh Agent | 192.168.1.x |
+| Ubuntu WSL | SOC Manager | 172.23.201.127 (Or localhost) |
+| Windows 11 | Wazuh Agent | 172.23.192.1 |
 ```sidenote about IP addresses
-Kali Linux VM SOC Manager is a static IP address
-The rest of the devices are managed by the DHCP (will always change | The agent stays and is stable )
-Ubuntu Agents Temporarily Decomissioned
+Not sure yet if windows or ubuntu would reset through DHCP
 ```
 
 ## Tools
@@ -35,7 +32,7 @@ Ubuntu Agents Temporarily Decomissioned
 ## Incidents
 | Case | Title | Severity | Verdict |
 |---|---|---|---|
-| #001 | Suspicious Account Creation | Medium | True Positive |
+
 
 ## Status
 Active — updated daily
@@ -44,9 +41,9 @@ Active — updated daily
 
 ```
 4/3/2026
-moving onto a new one
+New repo
 ```
 
 ```
-important notes: Case 001 is a simulated True Positive
+important notes: Hi
 ```
