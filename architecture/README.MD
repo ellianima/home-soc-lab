@@ -28,7 +28,7 @@ The central nerve of the lab. All security tooling lives here inside WSL2.
 | Wazuh Indexer   | 4.14.4 (OpenSearch 2.19.4) | Log storage and indexing backend     | ✅ Active  |
 | Wazuh Dashboard | 4.14.4                     | Alert visualization and dashboards   | ✅ Active  |
 | Logstash        | 7.17.29                    | Alert pipeline (Wazuh → OpenSearch)  | ✅ Active  |
-| Zeek            | 8.0.5                      | Network traffic capture and analysis | 🔜 Planned |
+| Zeek            | 8.0.5                      | Network traffic capture and analysis | ✅ Active |
 | TheHive         | 5.2 (Docker)               | Incident response case management    | 🔜 Planned |
 
 **Key ports:**
@@ -115,11 +115,11 @@ TheHive (planned)
 
 | OSI Layer              | Tool Monitoring It                                    | Status                         |
 | ---------------------- | ----------------------------------------------------- | ------------------------------ |
-| Layer 7 — Application  | Wazuh (Windows Event Logs, app logs), Zeek (HTTP/DNS) | ✅ Wazuh active / Zeek planned |
+| Layer 7 — Application  | Wazuh (Windows Event Logs, app logs), Zeek (HTTP/DNS) | ✅ Wazuh Active |
 | Layer 6 — Presentation | Wazuh (SSL/TLS inspection via rules)                  | 🔜 Partial                     |
-| Layer 4 — Transport    | Zeek (conn.log — TCP/UDP sessions)                    | 🔜 Planned                     |
-| Layer 3 — Network      | Zeek (IP traffic), Wazuh (firewall rules)             | 🔜 Planned                     |
-| Layer 2 — Data Link    | Zeek (ARP), Suricata (future)                         | 🔜 Planned                     |
+| Layer 4 — Transport    | Zeek (conn.log — TCP/UDP sessions)                    | ✅ Active                      |
+| Layer 3 — Network      | Zeek (IP traffic), Wazuh (firewall rules)             | ✅ Zeek Active / 🔜 Wazuh firewall rules planned |
+| Layer 2 — Data Link    | Zeek (ARP), Suricata (future)                         | ✅ Zeek Active / 🔜 Suricata planned  |
 | Endpoint (all layers)  | Wazuh agent (Windows 11 — FIM, SCA, vuln detection)   | ✅ Active                      |
 
 ---
