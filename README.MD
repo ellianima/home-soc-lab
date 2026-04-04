@@ -19,9 +19,9 @@ threat triage, IOC investigation, and incident documentation.
 |---|---|---|---|
 | Wazuh | 4.14.4 | SIEM + EDR + XDR |  Active |
 | Logstash | 7.17.29 | Alert pipeline to OpenSearch |  Active |
-| Zeek | 8.0.5 | Network traffic analysis |  Planned |
+| Zeek | 8.0.5 | Network traffic analysis |  Active |
 | TheHive | 5.2 | Incident case management |  Planned |
-| Wireshark | Latest | Packet analysis |  Planned |
+| Wireshark | Latest | Packet analysis |  Active |
 | VirusTotal | — | IOC enrichment |  Active (manual) |
 | AbuseIPDB | — | IP reputation lookup |  Active (manual) |
 | OTX AlienVault | — | Threat intelligence feeds |  Active (manual) |
@@ -39,13 +39,13 @@ threat triage, IOC investigation, and incident documentation.
 
 ## Status
 Active — updated regularly
-Last updated: April 3, 2026
+Last updated: April 4, 2026
 
 ```
-4/3/2026
-New repo
+4/4/2026
+tralalero tralala
 ```
 
 ```
-important notes: Hi
+important notes: Helloooooooooo
 ```
