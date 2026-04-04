@@ -54,7 +54,6 @@ incident documentation.
 
 | Case | Title | Severity | Verdict |
 |---|---|---|---|
-| 001 | active_connection_reuse — PLDT DNS Server (IPv6) | Low | Benign — ISP DNS resolver |
 
 ## Status
 Active — updated regularly
