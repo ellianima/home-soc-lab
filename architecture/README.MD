@@ -2,17 +2,17 @@
 
 ## Network Overview
 
-| Component           | OS               | IP Address                                   | Role                               |
-| ------------------- | ---------------- | -------------------------------------------- | ---------------------------------- |
-| Ubuntu 22.04 (WSL2) | Ubuntu 22.04 LTS | 172.23.201.127 (static — persistent across reboots)) | SOC Manager                        |
-| Windows 11          | Windows 11       | 172.23.192.1                                 | Monitored Endpoint (Windows Agent) |
-| Kali Linux VM       | Kali Rolling     | TBD — 4GB RAM                                | Attacker 🔜 Planned                |
-| Home Router         | ZTE F670L        | 192.168.1.1                                  | Gateway / DHCP Server              |
+| Component | OS | IP Address | Role |
+|---|---|---|---|
+| Ubuntu 22.04 (WSL2) | Ubuntu 22.04 LTS | 172.23.201.127 (static — persistent across reboots) | SOC Manager |
+| Windows 11 | Windows 11 | 172.23.192.1 | Monitored Endpoint + Packet Capture |
+| Kali Linux VM | Kali Rolling | TBD — 4GB RAM | Attacker 🔜 Planned |
+| Home Router | ZTE F670L | 192.168.1.1 | Gateway / DHCP Server |
 
 **Hypervisor:** Oracle VirtualBox (Host: Windows 11)
 **SIEM Host:** WSL2 Ubuntu 22.04 (shares RAM dynamically with Windows)
 
-> ✅ WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
+> ✅ WSL2 IP statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
 
 ---
 
@@ -20,16 +20,15 @@
 
 ### Ubuntu 22.04 WSL2 — SOC Manager (`172.23.201.127`)
 
-The central nerve of the lab. All security tooling lives here inside WSL2.
-
-| Tool            | Version                    | Purpose                              | Status     |
-| --------------- | -------------------------- | ------------------------------------ | ---------- |
-| Wazuh Manager   | 4.14.4                     | SIEM — collects, correlates, alerts  | ✅ Active  |
-| Wazuh Indexer   | 4.14.4 (OpenSearch 2.19.4) | Log storage and indexing backend     | ✅ Active  |
-| Wazuh Dashboard | 4.14.4                     | Alert visualization and dashboards   | ✅ Active  |
-| Logstash        | 7.17.29                    | Alert pipeline (Wazuh → OpenSearch)  | ✅ Active  |
-| Zeek            | 8.0.5                      | Network traffic capture and analysis | ✅ Active |
-| TheHive         | 5.2 (Docker)               | Incident response case management    | 🔜 Planned |
+| Tool | Version | Purpose | Status |
+|---|---|---|---|
+| Wazuh Manager | 4.14.4 | SIEM — collects, correlates, alerts | ✅ Active |
+| Wazuh Indexer | 4.14.4 (OpenSearch 2.19.4) | Log storage and indexing backend | ✅ Active |
+| Wazuh Dashboard | 4.14.4 | Alert visualization and dashboards | ✅ Active |
+| Logstash | 7.17.29 | Pipeline (Wazuh alerts + Zeek logs → OpenSearch) | ✅ Active |
+| Zeek | 8.0.5 | Network traffic analysis (pcap replay mode) | ✅ Active |
+| TheHive | 5.2.16 (Docker) | Incident response case management (on-demand) | ✅ Operational |
+| Docker | 28.2.2 | Container runtime for TheHive stack | ✅ Active |
 
 **Key ports:**
 
@@ -37,29 +36,42 @@ The central nerve of the lab. All security tooling lives here inside WSL2.
 - `1515/tcp` — Wazuh agent enrollment
 - `9200/tcp` — OpenSearch (Wazuh Indexer) API
 - `443/tcp` — Wazuh Dashboard (HTTPS)
-- `9000/tcp` — TheHive web interface (when deployed)
+- `9000/tcp` — TheHive web interface (on-demand)
 - `5044/tcp` — Logstash pipeline input (internal)
 
-### Windows 11 — Monitored Endpoint (`172.23.192.1`)
+---
+
+### Windows 11 — Monitored Endpoint + Capture Station (`172.23.192.1`)
 
 **Hostname:** `Candy-Cat-Silly-Fun`
 **Status:** ACTIVE
 
-Physical host machine also acting as a monitored endpoint. Wazuh agent installed. Used for:
+| Tool | Version | Purpose | Status |
+|---|---|---|---|
+| Wazuh Agent | 4.14.4 | Ships Windows events to Wazuh Manager | ✅ Active |
+| Sysmon | 15.20 | Deep process + network telemetry | ✅ Active |
+| Wireshark | 4.6.4 | Live packet capture → .pcap export | ✅ Active |
 
-- Windows Event Log monitoring (4624 logon, 4625 failed logon, 4688 process creation)
+**Sysmon config:** SwiftOnSecurity (`sysmonconfig-export.xml`)
+**Wireshark capture interface:** Wi-Fi (physical NIC — real LAN traffic)
+**pcap storage:** `C:\Users\elli\Desktop\JOB\PHASE A\SOC ANALYST L1\pcap folder\`
+
+Windows monitoring coverage:
+- Windows Event Logs (4624 logon, 4625 failed logon, 4688 process creation)
+- Sysmon Event ID 1 (process creation), 3 (network connection), 11 (file creation)
 - File Integrity Monitoring (FIM) — `C:\Users\Public`, `C:\Windows\System32`, `C:\ProgramData`
 - Security Configuration Assessment (CIS Windows 11 Benchmark)
 - Vulnerability Detection
-- Future attack target for red team simulation
+
+---
 
 ### Kali Linux VM — Attacker 🔜 Planned
 
 **RAM:** 4GB allocated
 **Network:** Bridged (same LAN as Windows host)
 **Rules:** Zero SOC tools — pure attacker machine
-Used for:
 
+Used for:
 - Network reconnaissance (Nmap, Netdiscover)
 - Exploitation (Metasploit)
 - Credential attacks (Hydra, Hashcat)
@@ -70,82 +82,123 @@ Used for:
 
 ## Data Flow
 ```
-[Windows Agent] ──TCP 1514──► [Wazuh Manager : WSL2 172.23.201.127]
+[Windows 11]
+├── Wazuh Agent ──TCP 1514──► [Wazuh Manager : WSL2 172.23.201.127]
+│                                      │
+│                               alerts.json
+│                                      │
+│                              Logstash reads ──► OpenSearch (port 9200)
+│                                                        │
+│                                              Wazuh Dashboard queries
 │
-├── alerts.json (local file)
-│ │
-│ └── Logstash reads ──► OpenSearch (port 9200)
+├── Sysmon ──► Windows Event Log ──► Wazuh Agent ──► Manager
 │
-├── Wazuh Dashboard queries OpenSearch
-└── Cases opened → TheHive (planned)
-[WSL2 eth0] ──passive sniff──► [Zeek] ──► conn.log / dns.log / http.log (planned)
-[Kali VM] ──attacks──► [Windows 11] ──events──► [Wazuh Agent] ──► Manager (planned)
+└── Wireshark captures Wi-Fi NIC ──► .pcap file
+│
+copied to WSL2 ~/zeek-analysis/
+│
+Zeek analyzes
+│
+conn.log / dns.log / http.log / ssl.log / weird.log
+│
+Logstash reads (JSON) ──► OpenSearch zeek-* index
+│
+Wazuh Dashboard (zeek-* pattern)
+[TheHive — on demand]
+├── docker-compose up → Cassandra + TheHive
+├── Analyst opens cases for True Positives
+├── Observables: IPs, domains, hashes, processes
+└── docker-compose down → stops when investigation complete
 ```
 ---
 
 ## Tool Interaction Map
-
 ```
 Wazuh Manager
-├── receives agent events (Windows logs, FIM, SCA, vulnerability data)
+├── receives agent events (Windows logs, Sysmon, FIM, SCA, vulnerability)
 ├── correlates against built-in + custom rules
-├── writes alerts to /var/ossec/logs/alerts/alerts.json
-└── (planned) forwards alerts to TheHive via API
+├── writes alerts → /var/ossec/logs/alerts/alerts.json
+└── forwards alerts to TheHive (planned — integration module)
+Sysmon (Windows)
+├── monitors process creation, network connections, file creation, registry
+├── writes to Windows Event Log (Microsoft-Windows-Sysmon/Operational)
+└── Wazuh Agent ships events → Manager → rule group: sysmon
+Wireshark (Windows)
+├── hooks into physical Wi-Fi NIC at Layer 2
+├── captures all LAN traffic (frames → decoded up to Layer 7)
+└── exports .pcap → copied to WSL2 for Zeek analysis
+Zeek (WSL2 — pcap replay mode)
+├── reads .pcap files from ~/zeek-analysis/
+├── produces JSON structured logs: conn, dns, http, ssl, weird, x509, files
+└── logs shipped via Logstash → OpenSearch zeek-* index
 Logstash
-├── reads /var/ossec/logs/alerts/alerts.json
-├── ships to OpenSearch index wazuh-alerts-4.x-YYYY.MM.DD
+├── input 1: /var/ossec/logs/alerts/alerts.json → wazuh-alerts-4.x-* index
+├── input 2: ~/zeek-analysis/.log (JSON) → zeek- index
 └── uses logstash-output-opensearch plugin (Filebeat incompatible with WSL2)
 Wazuh Dashboard
-├── queries OpenSearch for alert data
-├── renders MITRE ATT&CK, FIM, Compliance, Vulnerability panels
-└── accessible at https://172.23.201.127 or https://localhost
-Zeek (planned)
-├── listens on network interface in promiscuous mode
-├── generates structured logs: conn.log, dns.log, http.log, notice.log
-└── logs stored at /opt/zeek/logs/current/
-TheHive (planned)
-├── receives incident cases (manual or automated)
-├── tracks observables (IPs, hashes, domains)
-└── documents analyst actions and resolution
+├── queries OpenSearch for wazuh-alerts-* and zeek-* data
+├── renders MITRE ATT&CK, FIM, Sysmon, Compliance, Vulnerability panels
+└── accessible at https://172.23.201.127
+TheHive (on-demand Docker)
+├── start: cd ~/thehive && docker-compose up -d
+├── tracks cases, observables (IPs, hashes, domains), analyst tasks
+└── stop: docker-compose down (RAM conservation)
 ```
-
 ---
 
 ## OSI Layer Coverage
 
-| OSI Layer              | Tool Monitoring It                                    | Status                         |
-| ---------------------- | ----------------------------------------------------- | ------------------------------ |
-| Layer 7 — Application  | Wazuh (Windows Event Logs, app logs), Zeek (HTTP/DNS) | ✅ Wazuh Active |
-| Layer 6 — Presentation | Wazuh (SSL/TLS inspection via rules)                  | 🔜 Partial                     |
-| Layer 4 — Transport    | Zeek (conn.log — TCP/UDP sessions)                    | ✅ Active                      |
-| Layer 3 — Network      | Zeek (IP traffic), Wazuh (firewall rules)             | ✅ Zeek Active / 🔜 Wazuh firewall rules planned |
-| Layer 2 — Data Link    | Zeek (ARP), Suricata (future)                         | ✅ Zeek Active / 🔜 Suricata planned  |
-| Endpoint (all layers)  | Wazuh agent (Windows 11 — FIM, SCA, vuln detection)   | ✅ Active                      |
+| OSI Layer | Tool Monitoring It | Status |
+|---|---|---|
+| Layer 7 — Application | Wazuh (Windows Event Logs), Zeek (HTTP/DNS), Sysmon (process behavior) | ✅ Active |
+| Layer 6 — Presentation | Zeek (ssl.log — TLS certs, cipher suites), Wazuh (SSL rules) | ✅ Active |
+| Layer 5 — Session | Zeek (conn.log — session tracking) | ✅ Active |
+| Layer 4 — Transport | Zeek (TCP/UDP — ports, duration, bytes) | ✅ Active |
+| Layer 3 — Network | Zeek (IP traffic), Wazuh (firewall rules) | ✅ Active |
+| Layer 2 — Data Link | Wireshark (raw frame capture on physical NIC) | ✅ Active |
+| Endpoint (all layers) | Wazuh Agent + Sysmon (Windows 11) | ✅ Active |
 
 ---
 
 ## Why WSL2 Instead of a Dedicated VM?
 
-| Factor                 | VM-based Wazuh      | WSL2 Wazuh (current)              |
-| ---------------------- | ------------------- | --------------------------------- |
-| RAM cost               | Fixed 4–6GB         | Dynamic — shares with Windows     |
-| Boot time              | ~2 min              | ~10 seconds                       |
-| Dashboard access       | VM IP only          | localhost or WSL2 IP              |
-| File access            | Separate filesystem | `/mnt/c/` bridges Windows         |
-| Attack lab coexistence | Hard on 12GB RAM    | Comfortable — leaves 4GB for Kali |
+| Factor | VM-based Wazuh | WSL2 Wazuh (current) |
+|---|---|---|
+| RAM cost | Fixed 4–6GB | Dynamic — shares with Windows |
+| Boot time | ~2 min | ~10 seconds |
+| Dashboard access | VM IP only | localhost or WSL2 IP |
+| File access | Separate filesystem | `/mnt/c/` bridges Windows |
+| Attack lab coexistence | Hard on 12GB RAM | Comfortable — leaves 4GB for Kali |
+
+---
+
+## Why Zeek Runs in pcap Mode (Not Live)
+
+WSL2 uses a virtual network adapter — it cannot access the physical NIC directly.
+Physical Wi-Fi NIC (Windows)
+│
+Windows Hyper-V
+│
+Virtual Switch (vEthernet WSL)
+│
+WSL2 eth0 ← Zeek can only see THIS (WSL2-only traffic)
+
+**Solution:** Capture on Windows (Wireshark has real NIC access) → export .pcap → analyze in Zeek on WSL2. This is standard threat hunting workflow used by professional analysts.
 
 ---
 
 ## Known Limitations
 
-| Limitation                      | Impact                             | Workaround                                  |
-| ------------------------------- | ---------------------------------- | ------------------------------------------- |
-| WSL2 IP changes on reboot       | FIXED                              | Static IP assigned via /etc/wsl.conf boot command|
-| Filebeat incompatible with WSL2 | Cannot use official Wazuh pipeline | Replaced with Logstash + OpenSearch plugin  |
-| Single Windows agent            | No Linux endpoint monitoring       | Kali VM agent planned for Phase 2           |
-| No network tap                  | Zeek sees WSL2 traffic only        | Full LAN coverage when Zeek + Kali deployed |
+| Limitation | Impact | Workaround |
+|---|---|---|
+| WSL2 IP changes on reboot | FIXED | Static IP via `/etc/wsl.conf` boot command |
+| Filebeat incompatible with WSL2 | Cannot use official pipeline | Replaced with Logstash + OpenSearch plugin |
+| Zeek cannot do live capture on WSL2 | No real-time network monitoring | Wireshark → pcap → Zeek workflow |
+| TheHive RAM usage | Too heavy to run always-on | On-demand via docker-compose up/down |
+| Single Windows agent | No Linux endpoint | Kali VM agent planned for red team phase |
 
 ---
 
-_Cerveaux Labs — Home SOC Operations_
-_github.com/ellianima/home-soc-lab_
+*Cerveaux Labs — Home SOC Operations*
+*github.com/ellianima/home-soc-lab*
+*Last updated: April 4, 2026*
