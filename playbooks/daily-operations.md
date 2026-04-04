@@ -2,19 +2,14 @@
 
 **Analyst:** ellianima
 **Lab:** Cerveaux Labs Home SOC
-**Last updated:** 2026-04-03
+**Last updated:** 2026-04-04
 
 ---
 
 ## The Core Loop
 
 Every shift, every day, without exception:
-
-```
 Monitor → Detect → Triage → Investigate → Escalate or Close → Document
-```
-
-That's the job. Everything else is detail around this loop.
 
 ---
 
@@ -22,27 +17,31 @@ That's the job. Everything else is detail around this loop.
 
 | Component | Role | IP |
 |---|---|---|
-| Ubuntu 22.04 (WSL2) | Wazuh Manager + Logstash | 172.23.201.127 (static — persistent across reboots) |
-| Windows 11 | Wazuh Agent + Monitored Endpoint | 172.23.192.1 |
+| Ubuntu 22.04 (WSL2) | Wazuh Manager + Logstash + Zeek | 172.23.201.127 |
+| Windows 11 | Wazuh Agent + Sysmon + Wireshark | 172.23.192.1 |
 
-> ✅ WSL2 IP is statically assigned via `/etc/wsl.conf` boot command. Persistent across reboots.
+> ✅ WSL2 IP statically assigned via `/etc/wsl.conf` boot command.
 
-### Starting the lab (after Windows reboot)
-
+### Starting the lab
 ```bash
 # All services auto-start on WSL2 boot
-# Verify they're running:
+# Verify:
 sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard logstash | grep Active
 
-# If any service failed to start (e.g. Logstash started before Indexer was ready):
+# If Logstash failed (started before Indexer):
 sudo systemctl start logstash
 
-# Verify all services
-sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard logstash | grep Active
+# TheHive — start on demand only
+cd ~/thehive && docker-compose up -d
+
+# TheHive — stop when done
+cd ~/thehive && docker-compose down
 ```
 
-Dashboard: `https://172.23.201.127` or `https://localhost`
-Credentials: `admin / admin`
+Dashboard: `https://172.23.201.127`
+TheHive: `http://localhost:9000`
+Credentials Wazuh: `admin / admin`
+Credentials TheHive: `admin@thehive.local / secret`
 
 ---
 
@@ -50,12 +49,7 @@ Credentials: `admin / admin`
 
 ### Step 1 — Read shift handover notes
 
-Before opening any tool, read what the previous session left behind.
-
-In a corporate SOC this is a ticketing system (ServiceNow, Jira).
-In your home lab this is your `daily-writeup.md` from yesterday.
-
-Questions to answer:
+Before opening any tool, read yesterday's `daily-writeup.md`.
 
 - What cases are still open?
 - Was anything escalated that needs follow-up?
@@ -63,23 +57,40 @@ Questions to answer:
 
 ### Step 2 — Check agent health
 
-Open Wazuh dashboard. Before looking at a single alert, verify every agent is alive.
-
-```
+Open Wazuh dashboard. Before looking at alerts, verify every agent is alive.
 Agents Summary → All agents showing Active?
-Last keep alive → Is the timestamp recent (within last 30 seconds)?
-```
+Last keep alive → Recent timestamp (within last 30 seconds)?
 
-If an agent went silent — **that IS the first incident of the day.** A dead agent = a blind spot. Investigate why before anything else.
+A dead agent = a blind spot. **That IS the first incident of the day.**
 
 Your agents:
-| Agent | Host | IP | Expected status |
+
+| Agent | Host | IP | Expected Status |
 |---|---|---|---|
 | 001 | Candy-Cat-Silly-Fun (Windows 11) | 172.23.192.1 | Active |
 
-### Step 3 — Check threat intel feeds
+### Step 3 — Zeek Network Check
+```bash
+cd ~/zeek-analysis
 
-Spend 5 minutes scanning for anything new that affects your environment.
+# Copy latest capture from Windows
+cp "/mnt/c/Users/elli/Desktop/JOB/PHASE A/SOC ANALYST L1/pcap folder/[capture].pcap" .
+
+# Analyze
+zeek -C -r [capture].pcap /opt/zeek/share/zeek/site/local.zeek
+
+# Quick triage
+grep "active_connection_reuse\|TCP_seq\|ip_hdr_len_zero" weird.log
+cat dns.log | head -20
+cat conn.log | sort -k9 -rn | head -10   # top connections by bytes
+```
+
+Key questions:
+- Any IPs in `weird.log` that aren't ISP/CDN infrastructure?
+- Any DNS queries to random-looking domains?
+- Any long-duration connections to unknown external IPs?
+
+### Step 4 — Check threat intel feeds
 
 | Source | What to check |
 |---|---|
@@ -88,104 +99,127 @@ Spend 5 minutes scanning for anything new that affects your environment.
 | [OTX AlienVault](https://otx.alienvault.com) | Active campaigns |
 | [MITRE ATT&CK](https://attack.mitre.org) | New technique additions |
 
-Ask: does any of this affect Windows 11, Wazuh 4.14.4, or anything on my network?
-
 ---
 
-## Phase 2 — Alert Triage (Bulk of your shift)
+## Phase 2 — Alert Triage
 
 ### Wazuh priority order
-
-Never start at Level 3 and work up. Always work top-down by severity.
-
-```
 Level 12–15  →  Drop everything. Investigate immediately.
 Level 7–11   →  High priority. Work within the hour.
 Level 4–6    →  Medium. Work through during shift.
 Level 1–3    →  Low noise. Review in bulk at end of shift.
-```
 
 ### Morning dashboard checks — in order
 
-1. **Level 12+ alerts** — any? If yes, this becomes your entire focus
-2. **Authentication failures** — brute force? Unusual account?
-3. **MITRE ATT&CK panel** — any new tactics since yesterday?
-4. **FIM recent events** — any unexpected file changes?
-5. **Vulnerability Detection** — any new Critical/High findings?
-6. **SCA score** — did the benchmark score change?
-
-> 📝 Zeek network analysis coming soon — conn.log and dns.log checks will be added when Zeek is deployed.
+1. **Level 12+ alerts** — any? If yes, full focus here
+2. **Sysmon alerts** — any suspicious process spawns?
+3. **Authentication failures** — brute force? Unusual account?
+4. **MITRE ATT&CK panel** — new tactics since yesterday?
+5. **FIM recent events** — unexpected file changes?
+6. **Vulnerability Detection** — new Critical/High findings?
+7. **Zeek index** (`zeek-*`) — anomalies in network layer?
 
 ---
 
 ## Phase 3 — Per-Alert Triage Loop
 
-Repeat this for every alert you touch.
-
 ### The 5 questions
 
-For every alert, answer these before doing anything else:
+What rule triggered it, and what does it actually detect?
+Which host/agent is the source?
+What time did it fire — is that normal for this host?
+Has this exact pattern fired before, or is this new behavior?
+Is there corroborating evidence in FIM, Sysmon, Zeek, or other rules?
 
-```
-1. What rule triggered it, and what does that rule actually detect?
-2. Which host/agent is the source?
-3. What time did it fire — is that normal for this host?
-4. Has this exact pattern fired before, or is this new behavior?
-5. Is there corroborating evidence in FIM, Sysmon, or other rules?
-```
 
-Question 5 is the most important. One data point is a signal. Three correlated data points is a true positive.
+Question 5 is the most important. One data point is a signal.
+Three correlated data points is a true positive.
 
 ### Correlation matrix
 
-| Wazuh fires | + FIM shows | + Sysmon shows | = Verdict |
+| Wazuh fires | + Sysmon shows | + Zeek shows | = Verdict |
 |---|---|---|---|
-| Auth failure | Unexpected file change | New process | True Positive — escalate |
+| Auth failure | New process spawned | Outbound connection to unknown IP | True Positive — escalate |
 | Auth failure | Nothing unusual | Nothing | Likely FP — investigate user |
-| User created | Startup folder modified | cmd.exe spawned | True Positive — escalate |
+| User created | Startup folder modified | DNS query to random domain | True Positive — escalate |
 | File changed | Nothing | Nothing | Verify manually |
+| PowerShell alert | cmd.exe spawned | Long duration external connection | True Positive — escalate |
 
 ### Verdict decision tree
-
 ```
 Alert fires
-    │
-    ├─► Is this a known pattern? (same rule, same source, happened before)
-    │       │
-    │       ├─► YES → Likely false positive
-    │       │         Document reason → Close
-    │       │         Consider rule tuning if recurring
-    │       │
-    │       └─► NO → Continue investigation
-    │
-    ├─► Cross-reference with FIM + Sysmon + Vulnerability data
-    │       │
-    │       ├─► Corroborated → TRUE POSITIVE
-    │       │         Open TheHive case (when deployed)
-    │       │         Document timeline + IOCs
-    │       │         Escalate to L2 with findings
-    │       │
-    │       └─► Not corroborated → UNCLEAR
-    │                 Document findings
-    │                 Escalate to L2 with "needs further investigation"
-    │
-    └─► Document everything regardless of verdict
+│
+├─► Known pattern? (same rule, same source, happened before)
+│       ├─► YES → Likely FP → Document → Close
+│       └─► NO → Continue investigation
+│
+├─► Cross-reference FIM + Sysmon + Zeek
+│       ├─► Corroborated → TRUE POSITIVE
+│       │         Open TheHive case
+│       │         Document timeline + IOCs
+│       │         Escalate to L2
+│       │
+│       └─► Not corroborated → UNCLEAR
+│                 Document findings
+│                 Escalate with "needs further investigation"
+│
+└─► Document everything regardless of verdict
 ```
-
 ---
 
 ## Phase 4 — Investigation Tools
 
 ### IOC lookup flow
-
-```
 Suspicious IP/domain/hash found
-        │
-        ├─► VirusTotal → reputation + detections
-        ├─► AbuseIPDB → abuse reports + confidence score
-        ├─► Shodan → what's exposed on that IP?
-        └─► OTX AlienVault → threat intel context
+│
+├─► VirusTotal    → reputation + detections
+├─► AbuseIPDB     → abuse reports + confidence score
+├─► whois/APNIC   → who owns this IP/ASN?
+├─► Shodan        → what's exposed on that IP?
+└─► OTX AlienVault → threat intel context
+
+### Zeek quick reference
+```bash
+# All weird events
+cat weird.log | python3 -m json.tool
+
+# Top destination IPs by connection count
+cat conn.log | python3 -c "
+import sys, json
+from collections import Counter
+c = Counter()
+for line in sys.stdin:
+    try:
+        d = json.loads(line)
+        c[d.get('id.resp_h','')] += 1
+    except: pass
+for ip, n in c.most_common(10): print(n, ip)
+"
+
+# DNS queries only
+cat dns.log | python3 -m json.tool | grep '"query"'
+
+# Long duration connections (potential C2)
+cat conn.log | python3 -c "
+import sys, json
+for line in sys.stdin:
+    try:
+        d = json.loads(line)
+        if float(d.get('duration', 0)) > 60:
+            print(d.get('duration'), d.get('id.orig_h'), '→', d.get('id.resp_h'), d.get('id.resp_p'))
+    except: pass
+"
 ```
+
+### Wazuh DQL quick reference
+rule.level >= 7
+rule.mitre.id: *
+rule.mitre.id: T1098
+agent.id: 001
+rule.groups: authentication_failed
+rule.groups: syscheck
+rule.groups: sysmon
+rule.groups: vulnerability-detector
 
 ### Analysis tools
 
@@ -193,71 +227,40 @@ Suspicious IP/domain/hash found
 |---|---|---|
 | VirusTotal | Any IP, hash, domain, URL | Multi-engine reputation scan |
 | AbuseIPDB | Suspicious IP in alerts | Abuse history + confidence % |
-| CyberChef | Obfuscated strings, encoded payloads | Decode/deobfuscate anything |
+| whois / APNIC | Unknown IP | ASN, ISP, country |
+| CyberChef | Obfuscated strings | Decode/deobfuscate |
 | Any.run | Suspicious file or process | Live sandbox execution |
-| Shodan | External IP from logs | What services it's running |
-| urlscan.io | Suspicious URL | Screenshot + behavior analysis |
-
-### Wazuh DQL quick reference
-
-```
-# All high severity alerts today
-rule.level >= 7
-
-# MITRE-tagged alerts only
-rule.mitre.id: *
-
-# Specific technique
-rule.mitre.id: T1098
-
-# Specific agent
-agent.id: 001
-
-# Authentication failures
-rule.groups: authentication_failed
-
-# FIM events
-rule.groups: syscheck
-
-# Vulnerability alerts
-rule.groups: vulnerability-detector
-```
-
-### Check alerts from WSL2 terminal
-
-```bash
-# Live alert monitoring
-sudo tail -f /var/ossec/logs/alerts/alerts.json | python3 -m json.tool
-
-# FIM events only
-sudo tail -f /var/ossec/logs/alerts/alerts.json | grep -i "syscheck"
-
-# High severity only (level 7+)
-sudo tail -f /var/ossec/logs/alerts/alerts.json | grep -E '"level":[7-9]|"level":1[0-5]'
-
-# Verify alert count in indexer
-curl -k -u admin:admin "https://172.23.201.127:9200/wazuh-alerts-*/_count"
-```
+| Shodan | External IP from logs | Exposed services |
+| urlscan.io | Suspicious URL | Screenshot + behavior |
 
 ---
 
-## Phase 5 — Documentation
+## Phase 5 — TheHive Case Management
 
-This is where most junior analysts fail. Every alert you touch needs a record.
-
-### False positive format
-
-```markdown
-**Alert:** [Rule ID] — [Description] — Level [N]
-**Time:** [timestamp]
-**Source:** [hostname / IP / process]
-**Reason:** [Why this is benign — be specific]
-**Verdict:** FALSE POSITIVE
-**Action:** No escalation. [Tuning recommendation if recurring]
+Start TheHive only when opening a case:
+```bash
+cd ~/thehive && docker-compose up -d
+# Wait ~3 minutes for full initialization
+# Access: http://localhost:9000
 ```
 
-### True positive / incident report format
+### Opening a case
+New Case →
+Title:      [short description]
+Severity:   Low / Medium / High / Critical
+Tags:       [mitre technique, tool, protocol]
+Description: [what happened, what you found]
+Add Observables →
+IP addresses involved
+Domain names queried
+File hashes
+Process names
+Add Tasks →
+"Check VirusTotal for [IP]"
+"Review Zeek conn.log for [timeframe]"
+"Escalate to L2 with findings"
 
+### Incident note format (inside TheHive case)
 ```markdown
 **Incident ID:** IR-[YYYY]-[NNN]
 **Date/Time:** [timestamp]
@@ -282,12 +285,40 @@ This is where most junior analysts fail. Every alert you touch needs a record.
 **Actions taken:**
 - [what you did]
 
+**Verdict:** [Benign / True Positive / Escalated]
+
 **Recommendation:**
-- [what should happen next — L2 task]
+- [what should happen next]
+```
+
+Stop TheHive when done:
+```bash
+cd ~/thehive && docker-compose down
+```
+
+---
+
+## Phase 6 — Documentation
+
+### Zeek incident note format
+```markdown
+**ALERT:**   [what Zeek flagged — log type + event name + count]
+**FINDING:** [what OSINT revealed — tool used + result]
+**VERDICT:** [Benign / Suspicious / Malicious]
+**REASON:**  [specific explanation]
+```
+
+### False positive format
+```markdown
+**Alert:** [Rule ID] — [Description] — Level [N]
+**Time:** [timestamp]
+**Source:** [hostname / IP / process]
+**Reason:** [Why this is benign — be specific]
+**Verdict:** FALSE POSITIVE
+**Action:** No escalation. [Tuning recommendation if recurring]
 ```
 
 ### Shift handover note format
-
 ```markdown
 ## Shift Handover — [date] @ [time]
 
@@ -304,60 +335,57 @@ This is where most junior analysts fail. Every alert you touch needs a record.
 
 ### L1 handles
 - Alert triage and FP/TP classification
-- First-pass investigation (Wazuh + OSINT)
+- First-pass investigation (Wazuh + Zeek + OSINT)
 - IOC collection and documentation
-- Case creation in TheHive (when deployed)
+- Case creation and management in TheHive
 - Shift handover notes
 
 ### L2 handles (escalate these)
 - Deep malware analysis and reverse engineering
-- Threat hunting (proactive search for hidden threats)
+- Threat hunting (proactive)
 - Incident response lead
 - Custom detection rule creation
 - Memory forensics
 
-### Escalation triggers — escalate immediately if
-
-```
+### Escalation triggers
 Level 12+ alert fires
-Lateral movement detected (connections between internal hosts)
-Ransomware indicators (mass file changes in FIM)
-Privilege escalation to SYSTEM/root detected
-New service or scheduled task created outside business hours
+Lateral movement detected (internal → internal connections)
+Ransomware indicators (mass FIM changes)
+Privilege escalation to SYSTEM/root
+New service or scheduled task outside business hours
 Unknown process spawned by lsass.exe or svchost.exe
-```
+Zeek: long duration outbound connection to unknown IP
+Zeek: DNS queries to random-looking subdomains (possible tunneling)
+Zeek: port 443 traffic with no ssl.log entry
 
 ---
 
-## Home Lab Daily Checklist
-
-```
+## Daily Checklist
 STARTUP
-[ ] Verify WSL2 services (manager, indexer, dashboard, logstash)
-[ ] Verify all services active
-[ ] Confirm agent 001 (Candy-Cat-Silly-Fun) is online
-
+[ ] WSL2 services active (manager, indexer, dashboard, logstash)
+[ ] Agent 001 (Candy-Cat-Silly-Fun) showing Active
+[ ] Alert count > 0 in indexer
 MORNING
 [ ] Read yesterday's daily-writeup.md
-[ ] Verify all agents active in Wazuh
-[ ] Check Level 12+ alerts — any?
+[ ] Run Wireshark capture → analyze with Zeek
+[ ] Check weird.log — any anomalies?
+[ ] Check Wazuh Level 12+ alerts — any?
+[ ] Check Sysmon alerts — suspicious process spawns?
 [ ] Scan threat intel (CISA KEV, OTX)
 [ ] Check MITRE panel — new tactics?
 [ ] Check FIM — unexpected file changes?
-[ ] Check Vulnerability Detection — new Critical/High?
-
 DURING SESSION
 [ ] Work alerts Level 7+ in priority order
-[ ] Cross-reference every suspicious alert with FIM + Sysmon
-[ ] Run IOCs through VirusTotal / AbuseIPDB
+[ ] Cross-reference suspicious alerts: Wazuh + Sysmon + Zeek
+[ ] Run IOCs through VirusTotal / AbuseIPDB / whois
 [ ] Document every alert touched (FP or TP)
-
+[ ] Open TheHive case for True Positives
 END OF SESSION
 [ ] Write daily-writeup.md entry
-[ ] Update open cases
+[ ] Update open TheHive cases
 [ ] Write shift handover note
+[ ] Stop TheHive: docker-compose down
 [ ] git add . && git commit -m "daily ops [date]" && git push
-```
 
 ---
 
@@ -365,14 +393,27 @@ END OF SESSION
 
 | Issue | Status | Workaround |
 |---|---|---|
-| WSL2 IP resets on reboot | FIXED  | Static IP via /etc/wsl.conf boot command |
-| Filebeat crashes on WSL2 | Known — replaced | Using Logstash + OpenSearch plugin instead |
-| Logstash needs Elasticsearch plugin installed | Known | Keep both `logstash-output-elasticsearch` and `logstash-output-opensearch` installed |
-| `perf_event_paranoid` resets on WSL2 restart | Mitigated | Set in `/etc/sysctl.conf` and `/etc/wsl.conf` |
-| Logstash inactive after reboot | FIXED | ExecStartPre=/bin/sleep 30 in logstash.service |
+| WSL2 IP resets on reboot | ✅ Fixed | Static IP via `/etc/wsl.conf` boot command |
+| Filebeat crashes on WSL2 | ✅ Replaced | Using Logstash + OpenSearch plugin |
+| Logstash needs ES plugin installed | Known | Keep both output plugins installed |
+| `perf_event_paranoid` resets | ✅ Mitigated | Set in `/etc/wsl.conf` boot command |
+| Logstash inactive after reboot | ✅ Fixed | `ExecStartPre=/bin/sleep 30` in logstash.service |
+| Zeek bad checksum warnings | Known — harmless | Use `zeek -C` flag for pcap analysis |
+| Zeek logs not shipping to Logstash | ✅ Fixed | `sudo usermod -aG ellianima logstash` |
+| TheHive exits on start | ✅ Fixed | Cassandra healthcheck in docker-compose |
+| TheHive RAM usage | ✅ Managed | On-demand only — docker-compose up/down |
+
+---
+
+## Incidents Log
+
+| Case | Date | Title | Severity | Verdict |
+|---|---|---|---|---|
+| IR-2026-001 | 2026-04-04 | active_connection_reuse — PLDT DNS Server (IPv6) | Low | Benign — ISP DNS resolver |
 
 ---
 
 *Cerveaux Labs — Home SOC Operations*
 *Analyst: ellianima*
 *github.com/ellianima/home-soc-lab*
+*Last updated: April 4, 2026*
