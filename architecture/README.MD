@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Ubuntu 22.04 (WSL2) | Ubuntu 22.04 LTS | 172.23.201.127 (static — persistent across reboots) | SOC Manager |
 | Windows 11 | Windows 11 | 172.23.192.1 | Monitored Endpoint + Packet Capture |
-| Kali Linux VM | Kali Rolling | TBD — 4GB RAM | Attacker 🔜 Planned |
+| Kali Linux VM | Kali Rolling | 192.168.1.10 | Attacker |
 | Home Router | ZTE F670L | 192.168.1.1 | Gateway / DHCP Server |
 
 **Hypervisor:** Oracle VirtualBox (Host: Windows 11)
