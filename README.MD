@@ -1,4 +1,4 @@
-# Home SOC Operations Lab
+S# Home SOC Operations Lab
 ### SOC Analyst L1 — Threat Detection, Network Visibility & Incident Response
 
 ## Overview
